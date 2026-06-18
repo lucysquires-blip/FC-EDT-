@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>FromCounsel Written Exercise – EDT (Direct Edit)</title>
+<style>
+:root {
+  --brand:          #0F4C81;
+  --brand-lt:       #1565c0;
+  --del-col:        #c62828;
+  --del-bg:         rgba(198,40,40,.12);
+  --ins-col:        #2e7d32;
+  --ins-bg:         rgba(46,125,50,.12);
+  --changed-bar:    #f57c00;
+  --surface:        #ffffff;
+  --page-bg:        #f0f2f5;
+  --border:         #d0d5dd;
+  --text:           #1a1a2e;
+  --text-muted:     #555770;
+  --radius:         6px;
+  --shadow-sm:      0 1px 3px rgba(0,0,0,.08);
+  --shadow-md:      0 4px 14px rgba(0,0,0,.10);
+  --edit-hover:     rgba(0,120,212,.04);
+  --edit-focus:     rgba(0,120,212,.07);
+  --edit-ring:      rgba(0,120,212,.30);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --brand:       #90caf9;
+    --brand-lt:    #bbdefb;
+    --del-col:     #ef9a9a;
+    --del-bg:      rgba(239,154,154,.15);
+    --ins-col:     #a5d6a7;
+    --ins-bg:      rgba(165,214,167,.15);
+    --changed-bar: #ffcc80;
+    --surface:     #1e1e2e;
+    --page-bg:     #12121e;
+    --border:      #3a3a50;
+    --text:        #e8e8f0;
+    --text-muted:  #9999bb;
+    --edit-hover:  rgba(144,202,249,.05);
+    --edit-focus:  rgba(144,202,249,.09);
+    --edit-ring:   rgba(144,202,249,.35);
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.78;
+  color: var(--text);
+  background: var(--page-bg);
+  min-height: 100vh;
+}
+
+/* ── Top bar ──────────────────────────────────────────── */
+#topbar {
+  position: sticky;
+  top: 0;
+  z-index: 300;
+  background: var(--brand);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  box-shadow: var(--shadow-md);
+  flex-wrap: wrap;
+}
+#topbar-title {
+  font-weight: 700;
+  font-size: 14px;
+  flex: 1 1 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#candidate-name {
+  flex: 0 0 178px;
+  border: 1.5px solid rgba(255,255,255,.45);
+  border-radius: var(--radius);
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  padding: 5px 10px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color .15s;
+}
+#candidate-name::placeholder { color: rgba(255,255,255,.6); }
+#candidate-name:focus         { border-color: #fff; }
+#candidate-name.err           { border-color: #ff8a80; box-shadow: 0 0 0 2px rgba(255,138,128,.4); }
+#change-count {
+  font-size: 12px;
+  background: rgba(255,255,255,.15);
+  padding: 4px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+  min-width: 110px;
+  text-align: center;
+}
+#timer {
+  font-size: 21px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .04em;
+  background: rgba(255,255,255,.15);
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  min-width: 74px;
+  text-align: center;
+}
+#timer.urgent { background: #c62828; animation: blink-timer 1s infinite; }
+@keyframes blink-timer { 0%,100%{opacity:1} 50%{opacity:.65} }
+#submit-top {
+  background: #fff;
+  color: var(--brand);
+  border: none;
+  padding: 7px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity .15s;
+  flex-shrink: 0;
+}
+#submit-top:hover    { opacity: .85; }
+#submit-top:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ── Page container ──────────────────────────────────── */
+#page { max-width: 920px; margin: 0 auto; padding: 0 16px 80px; }
+
+/* ── Instructions ────────────────────────────────────── */
+#instructions {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-inline-start: 4px solid var(--brand);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 14px 18px;
+  margin-block: 18px 12px;
+  box-shadow: var(--shadow-sm);
+  font-size: 14px;
+}
+#instructions h2 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--brand);
+  margin-block-end: 8px;
+}
+#instructions ul { padding-inline-start: 18px; }
+#instructions li { margin-block: 2px; }
+
+/* ── Tracking badge ──────────────────────────────────── */
+.tracking-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ins-col);
+  background: var(--ins-bg);
+  border: 1px solid var(--ins-col);
+  padding: 3px 10px;
+  border-radius: 12px;
+  margin-block-end: 14px;
+}
+.tracking-badge::before {
+  content: '';
+  display: block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--ins-col);
+  animation: rec-pulse 1.6s ease-in-out infinite;
+}
+@keyframes rec-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.3;transform:scale(.7)} }
+
+/* ── Articles (edit phase) ───────────────────────────── */
+article {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 30px 36px;
+  margin-block-end: 20px;
+  box-shadow: var(--shadow-sm);
+}
+.part-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--brand);
+  margin-block-end: 8px;
+}
+article h2 {
+  font-size: 17px;
+  font-weight: 700;
+  border-block-end: 1px solid var(--border);
+  padding-block-end: 12px;
+  margin-block-end: 16px;
+}
+article h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin-block: 18px 8px;
+}
+.para { margin-block-end: 12px; }
+.blist { padding-inline-start: 22px; margin-block: 6px 14px; }
+.blist li { margin-block: 5px; }
+
+/* ── Editable elements ───────────────────────────────── */
+[contenteditable="true"] {
+  cursor: text;
+  border-radius: 3px;
+  padding: 2px 4px;
+  margin-inline: -4px;
+  outline: none;
+  transition: background .12s;
+}
+[contenteditable="true"]:hover  { background: var(--edit-hover); }
+[contenteditable="true"]:focus  { background: var(--edit-focus); box-shadow: 0 0 0 1.5px var(--edit-ring); }
+
+/* ── Bottom submit ───────────────────────────────────── */
+.bottom-bar {
+  display: flex;
+  gap: 12px;
+  margin-block-start: 8px;
+  flex-wrap: wrap;
+}
+.btn {
+  padding: 10px 22px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.btn:hover    { opacity: .85; }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn-primary  { background: var(--brand); color: #fff; }
+.btn-outline  { background: transparent; color: var(--brand); border: 2px solid var(--brand); }
+
+/* ── Review phase ────────────────────────────────────── */
+#review-phase { padding-block-start: 16px; }
+
+#review-header {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 24px;
+  margin-block-end: 14px;
+  box-shadow: var(--shadow-sm);
+}
+#review-header h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--brand);
+  border-block-end: 2px solid var(--brand);
+  padding-block-end: 10px;
+  margin-block-end: 12px;
+}
+.review-meta-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.review-meta-grid strong { color: var(--text); }
+
+.legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+  font-size: 13px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  margin-block-end: 14px;
+}
+.leg-item { display: flex; align-items: center; gap: 6px; }
+
+/* ── Inline diff ─────────────────────────────────────── */
+del {
+  color: var(--del-col);
+  background: var(--del-bg);
+  text-decoration: line-through;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+ins {
+  color: var(--ins-col);
+  background: var(--ins-bg);
+  text-decoration: underline;
+  text-decoration-style: solid;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* changed section bar */
+.was-changed {
+  border-inline-start: 3px solid var(--changed-bar);
+  padding-inline-start: 10px;
+  margin-inline-start: -14px;
+}
+
+/* post-submit: no editing chrome */
+#review-content [contenteditable="false"] {
+  cursor: default;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0;
+  margin-inline: 0;
+}
+
+/* ── Amendment summary table ─────────────────────────── */
+.summary-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-block-end: 20px;
+  box-shadow: var(--shadow-sm);
+  overflow-x: auto;
+}
+.summary-wrap h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin-block-end: 12px;
+  color: var(--text);
+}
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.summary-table th {
+  text-align: start;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+  border-block-end: 1px solid var(--border);
+  padding: 6px 10px;
+}
+.summary-table td {
+  vertical-align: top;
+  padding: 8px 10px;
+  border-block-end: 1px solid var(--border);
+  line-height: 1.6;
+}
+.summary-table tr:last-child td { border-block-end: none; }
+.col-part  { white-space: nowrap; width: 70px; }
+.col-sect  { white-space: nowrap; width: 140px; }
+.col-diff  { }
+.no-amend  { color: var(--text-muted); font-style: italic; }
+
+  #review-phase { display: block !important; }
+  body { background: #fff; font-size: 12px; }
+  article { box-shadow: none; border: 1px solid #ccc; page-break-inside: avoid; }
+  del { color: #900; }
+  ins { color: #090; }
+  .summary-wrap { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     TOP BAR
+════════════════════════════════════════════════════ -->
+<div id="topbar" role="banner">
+  <span id="topbar-title">FromCounsel Written Exercise – EDT</span>
+  <input id="candidate-name" type="text" placeholder="Candidate name (required)" autocomplete="off" spellcheck="false" maxlength="80">
+  <div id="change-count">No amendments yet</div>
+  <div id="timer" aria-live="polite">30:00</div>
+  <button id="submit-top" type="button">Submit</button>
+</div>
+
+<div id="page">
+
+<!-- ═══════════════════════════════════════════════════
+     EDIT PHASE
+════════════════════════════════════════════════════ -->
+<div id="edit-phase">
+
+  <div id="instructions" role="note">
+    <h2>Instructions</h2>
+    <ul>
+      <li><strong>30 minutes</strong> allocated for this exercise.</li>
+      <li>Check both articles for <strong>typographical errors, internal inconsistencies and other inaccuracies</strong>.</li>
+      <li>Click directly into the text to make corrections — type to add, select and delete to remove.</li>
+      <li>All edits are tracked automatically. Enter your name above and click <strong>Submit</strong> when done.</li>
+      <li><em>Do not refresh this page — your work will be lost.</em></li>
+    </ul>
+  </div>
+
+  <div class="tracking-badge" aria-label="Track changes active">Track changes active — all edits are recorded</div>
+
+  <!-- ── PART ONE ──────────────────────────────────── -->
+  <article id="article-1">
+    <div class="part-label">Part One of Two</div>
+
+    <h2 id="s-h2-1"
+        contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+        data-part="Part 1" data-label="Article heading"
+        data-original="Takeovers: Takeover Panel publishes new jurisdictional framework for the Takeover Code"
+        >Takeovers: Takeover Panel publishes new jurisdictional framework for the Takeover Code</h2>
+
+    <div class="para"><span
+        id="s-p1"
+        contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+        data-part="Part 1" data-label="Paragraph 1"
+        data-original="0n 6 November 2024, the Takeover Panel published Panel Statement 2024/24, announcing the publication by the Code Committee of Response Statement 20/1 (RS 2024/1), which sets out a revised jurisdictional framework for the Takeover Code that will narrow the scope of the companies to which it applies. The changes to the Code follow Public Consultation Paper 2024/1 (PCP 2024/1) and will take effect on 3 March 2025 (Implementation Date). Transitional arrangements for companies that seize to be subject to the Code will apply for a three year period from the Implementation Date until 2 February 2027."
+        >0n 6 November 2024, the Takeover Panel published Panel Statement 2024/24, announcing the publication by the Code Committee of Response Statement 20/1 (RS&#x202F;2024/1), which sets out a revised jurisdictional framework for the Takeover Code that will narrow the scope of the companies to which it applies. The changes to the Code follow Public Consultation Paper 2024/1 (PCP&#x202F;2024/1) and will take effect on 3 March 2025 (Implementation Date). Transitional arrangements for companies that seize to be subject to the Code will apply for a three year period from the Implementation Date until 2 February 2027.</span></div>
+
+    <div class="para"><span
+        id="s-p2"
+        contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+        data-part="Part 1" data-label="Paragraph 2"
+        data-original="The simplified framework set out in RS 2024/1 largely reflects the proposals discussed in PCP 2024/1. The principal change is to the length of the run-off and transition periods, which will be two years rather than the three year period put forward in PCP 2024/1. Respondents were strongly supportive of the Panel's proposals to narrow and clarify the scope of it's jurisdiction. RS 2024/1 includes the Code Committee's detailed responses to the issues raised by respondants."
+        >The simplified framework set out in RS&#x202F;2024/1 largely reflects the proposals discussed in PCP&#x202F;2024/1. The principal change is to the length of the run-off and transition periods, which will be two years rather than the three year period put forward in PCP&#x202F;2024/1. Respondents were strongly supportive of the Panel&#x2019;s proposals to narrow and clarify the scope of it&#x2019;s jurisdiction. RS&#x202F;2024/1 includes the Code Committee&#x2019;s detailed responses to the issues raised by respondants.</span></div>
+
+    <h3 id="s-h3-current"
+        contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+        data-part="Part 1" data-label="Sub-heading: Current position"
+        data-original="Current position until the Implementation Date"
+        >Current position until the Implementation Date</h3>
+
+    <div class="para"><span
+        id="s-p3"
+        contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+        data-part="Part 1" data-label="Paragraph 3"
+        data-original="Section 3(a) Introduction Takeover Code currently applies to offers for the following companies with registered offices in the UK, the Chanel Islands or the Isle of Man:"
+        >Section 3(a) Introduction Takeover Code currently applies to offers for the following companies with registered offices in the UK, the Chanel Islands or the Isle of Man:</span></div>
+
+    <ul class="blist">
+      <li id="s-b1"
+          contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+          data-part="Part 1" data-label="Bullet 1"
+          data-original="companies that the Panel describes as being 'UK quoted', ie their securities are admittance to trading on a US regulated market such as the LSE's Main Market, on a UK multilateral trading facility such as AIM, or on a sock exchange in the Channel Islands or the Isle of Man;"
+          >companies that the Panel describes as being &#x2018;UK quoted&#x2019;, ie their securities are admittance to trading on a US regulated market such as the LSE&#x2019;s Main Market, on a UK multilateral trading facility such as AIM, or on a sock exchange in the Channel Islands or the Isle of Man;</li>
+      <li id="s-b2"
+          contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+          data-part="Part 1" data-label="Bullet 2"
+          data-original="other public companies that are not UK quoted and satisfy the Panel's residency test, ie are considered to have their place of central management and control in the UK, the Channel Islands or the Isle of Man"
+          >other public companies that are not UK quoted and satisfy the Panel&#x2019;s residency test, ie are considered to have their place of central management and control in the UK, the Channel Islands or the Isle of Man</li>
+      <li id="s-b3"
+          contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+          data-part="Part 1" data-label="Bullet 3"
+          data-original="certain private companies that satisfy the residency test, and one of the four situations set out in Section 3 (ii) applies; for example, the companies securities have been UK quoted at any time in the previous ten years."
+          >certain private companies that satisfy the residency test, and one of the four situations set out in Section&#x202F;3&#x202F;(ii) applies; for example, the companies securities have been UK quoted at any time in the previous ten years.</li>
+    </ul>
+
+    <h3 id="s-h3-new"
+        contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+        data-part="Part 1" data-label="Sub-heading: New jurisdictional framework"
+        data-original="new jurisdictional framework"
+        >new jurisdictional framework</h3>
+
+    <div class="para"><span
+        id="s-p4"
+        contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+        data-part="Part 1" data-label="Paragraph 4"
+        data-original="From the Implementation Date and subject to the transitional arrangements outlined below, the Code will apply to a company registered in the UK, the Channel Islands or the Isle of Man if on the 'relevant date' (ie the date of announcement of an offer or possible offer for the company or any other event with Code significance):"
+        >From the Implementation Date and subject to the transitional arrangements outlined below, the Code will apply to a company registered in the UK, the Channel Islands or the Isle of Man if on the &#x2018;relevant date&#x2019; (ie the date of announcement of an offer or possible offer for the company or any other event with Code significance):</span></div>
+
+    <ul class="blist">
+      <li id="s-b4"
+          contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+          data-part="Part 1" data-label="Bullet 4"
+          data-original="any of the company's securities are UK quoted; or"
+          >any of the company&#x2019;s securities are UK quoted; or</li>
+      <li id="s-b5"
+          contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+          data-part="Part 1" data-label="Bullet 5"
+          data-original="the company's securities has been UK quoted at any time during the previous two years."
+          >the company&#x2019;s securities has been UK quoted at any time during the previous two years.</li>
+    </ul>
+
+    <div class="para"><span
+        id="s-p5"
+        contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+        data-part="Part 1" data-label="Paragraph 5"
+        data-original="in each case regardless of whether the company is UK resident (ie the residency test will be abolished."
+        >in each case regardless of whether the company is UK resident (ie the residency test will be abolished.</span></div>
+
+    <div class="para"><span
+        id="s-p6"
+        contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+        data-part="Part 1" data-label="Paragraph 6"
+        data-original="The Code will therefor no longer apply to the following UK registered companies (subject to transitional arrangements), unless a company has been UK quoted at any time in the two years prior to the relevant date:"
+        >The Code will therefor no longer apply to the following UK registered companies (subject to transitional arrangements), unless a company has been UK quoted at any time in the two years prior to the relevant date:</span></div>
+
+    <ul class="blist">
+      <li id="s-b6"
+          contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+          data-part="Part 1" data-label="Bullet 6"
+          data-original="companies that were last UK quoted more than two years prior to the relevant date;"
+          >companies that were last UK quoted more than two years prior to the relevant date;</li>
+      <li id="s-b7"
+          contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+          data-part="Part 1" data-label="Bullet 7"
+          data-original="companies whose securities are, or were, traded using a matched bargain facility such as JK Penkins;"
+          >companies whose securities are, or were, traded using a matched bargain facility such as JK Penkins;</li>
+      <li id="s-b8"
+          contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+          data-part="Part 1" data-label="Bullet 8"
+          data-original="companies traded solely on an overseas market;"
+          >companies traded solely on an overseas market;</li>
+      <li id="s-b9"
+          contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+          data-part="Part 1" data-label="Bullet 9"
+          data-original="any other public company which is not UK quoted; and"
+          >any other public company which is not UK quoted; and</li>
+      <li id="s-b10"
+          contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+          data-part="Part 1" data-label="Bullet 10"
+          data-original="private companies that have filed a prospectuses in the UK at any time in the ten years prior to the relevant date."
+          >private companies that have filed a prospectuses in the UK at any time in the ten years prior to the relevant date.</li>
+    </ul>
+
+    <div class="para"><span
+        id="s-p7"
+        contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+        data-part="Part 1" data-label="Paragraph 7"
+        data-original="In addition, the Code will not apply to companies which are not (and have not recently been) UK quoted and whose securities are traded solely using crowdfunding platforms, private markets or the Private Internal Securities and Capitol Exchange System (PISCES) platform, which is expected to become operational in 2025."
+        >In addition, the Code will not apply to companies which are not (and have not recently been) UK quoted and whose securities are traded solely using crowdfunding platforms, private markets or the Private Internal Securities and Capitol Exchange System (PISCES) platform, which is expected to become operational in 2025.</span></div>
+
+    <h3 id="s-h3-amend"
+        contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+        data-part="Part 1" data-label="Sub-heading: Amendments"
+        data-original="Amendments the Code"
+        >Amendments the Code</h3>
+
+    <div class="para"><span
+        id="s-p8"
+        contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+        data-part="Part 1" data-label="Paragraph 8"
+        data-original="Appendix 8 of RS 2024/1 sets out in redline the amendments to the Code. The transitional arrangements are detail in a Transitional Appendix to the Code that will come into effect on the Implementation Date."
+        >Appendix 8 of RS&#x202F;2024/1 sets out in redline the amendments to the Code. The transitional arrangements are detail in a Transitional Appendix to the Code that will come into effect on the Implementation Date.</span></div>
+
+    <div class="para"><span
+        id="s-p9"
+        contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+        data-part="Part 1" data-label="Paragraph 9"
+        data-original="The Code Committee has also published Individual Responses to PC 2024/1 and Instrument 2024/3, which makes unnecessary amendments to the Code."
+        >The Code Committee has also published Individual Responses to PC&#x202F;2024/1 and Instrument 2024/3, which makes unnecessary amendments to the Code.</span></div>
+
+    <div class="para"><span
+        id="s-p10"
+        contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+        data-part="Part 1" data-label="Paragraph 10"
+        data-original="FC Content will be updated to reflect the new jurisdictional framework in the Takeover."
+        >FC Content will be updated to reflect the new jurisdictional framework in the Takeover.</span></div>
+  </article>
+
+  <!-- ── PART TWO ──────────────────────────────────── -->
+  <article id="article-2">
+    <div class="part-label">Part Two of Two</div>
+
+    <h2 id="s-h2-2"
+        contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+        data-part="Part 2" data-label="Article heading"
+        data-original="Corporate reporting/Late payments: Changes to payment practices reporting regulations in effect on 10 March 2025"
+        >Corporate reporting/Late payments: Changes to payment practices reporting regulations in effect on 10 March 2025</h2>
+
+    <div class="para"><span
+        id="s-p11"
+        contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+        data-part="Part 2" data-label="Paragraph 1"
+        data-original="On 23 January 2025, the Reporting on Payment Practices and Performance (Amendment) Regulations 2025 were made. With effect from 10 March 2025 (regulation 1), the regulations anend the Reporting on Payment Practices and Performance Regulations 2017 (Principal Regulations) and the associated Limited Liability (Reporting on Payment Practices and Performance) Regulations 2017, which require large companies and LLP to publicly report twice a year on a government webpage about their supplier payment practices, policies and performances."
+        >On 23 January 2025, the Reporting on Payment Practices and Performance (Amendment) Regulations 2025 were made. With effect from 10 March 2025 (regulation&#x202F;1), the regulations anend the Reporting on Payment Practices and Performance Regulations 2017 (Principal Regulations) and the associated Limited Liability (Reporting on Payment Practices and Performance) Regulations 2017, which require large companies and LLP to publicly report twice a year on a government webpage about their supplier payment practices, policies and performances.</span></div>
+
+    <div class="para"><span
+        id="s-p12"
+        contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+        data-part="Part 2" data-label="Paragraph 2"
+        data-original="In relation to financial years beginning on or before 1 April 2025, in-scope companies and LLPs will be required to publish the additional information set out in a new Schedule 2 to the Reporting on Payment Practices and Performance Regulations 2017 relating to retention clauses in qualifying contract construction with their suppliers."
+        >In relation to financial years beginning on or before 1 April 2025, in-scope companies and LLPs will be required to publish the additional information set out in a new Schedule&#x202F;2 to the Reporting on Payment Practices and Performance Regulations 2017 relating to retention clauses in qualifying contract construction with their suppliers.</span></div>
+
+    <div class="para"><span
+        id="s-p13"
+        contenteditable="true" spellcheck="false" autocorrect="off" autocapitalize="off"
+        data-part="Part 2" data-label="Paragraph 3"
+        data-original="The regulations are in largely the same form as the draft layed before Parliament in October 2024."
+        >The regulations are in largely the same form as the draft layed before Parliament in October 2024.</span></div>
+  </article>
+
+  <div class="bottom-bar">
+    <button id="submit-bottom" class="btn btn-primary" type="button">Submit &amp; View Amendment Record</button>
+  </div>
+
+</div><!-- /edit-phase -->
+
+<!-- ═══════════════════════════════════════════════════
+     REVIEW PHASE  (shown after submit)
+════════════════════════════════════════════════════ -->
+<div id="review-phase" hidden>
+
+  <div id="review-header">
+    <h2>Amendment Record — For Assessor Use</h2>
+    <div class="review-meta-grid">
+      <span>Candidate: <strong id="rv-name">—</strong></span>
+      <span>Submitted: <strong id="rv-time">—</strong></span>
+      <span>Sections amended: <strong id="rv-total">—</strong></span>
+    </div>
+  </div>
+
+  <div class="legend-row" aria-label="Key">
+    <span class="leg-item"><del>deleted text</del></span>
+    <span class="leg-item"><ins>inserted text</ins></span>
+    <span class="leg-item" style="border-inline-start:3px solid var(--changed-bar);padding-inline-start:6px;font-size:12px;color:var(--text-muted)">orange bar = section amended</span>
+  </div>
+
+  <!-- Amendment summary table (changed sections only) -->
+  <div class="summary-wrap">
+    <h3>Amendment Summary</h3>
+    <table class="summary-table">
+      <thead>
+        <tr>
+          <th class="col-part">Part</th>
+          <th class="col-sect">Section</th>
+          <th class="col-diff">Amended text (changes shown inline)</th>
+        </tr>
+      </thead>
+      <tbody id="summary-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Full document view with inline diff -->
+  <div id="review-content"></div>
+
+  <div class="bottom-bar">
+    <button id="email-btn" class="btn btn-outline" type="button">&#9993;&#xFE0E; Email record to assessor</button>
+  </div>
+  <p id="email-note" style="font-size:12px;color:var(--text-muted);margin-block-start:6px;">
+    Opens your email client addressed to the assessor with the amendment record pre-filled.
+  </p>
+
+</div><!-- /review-phase -->
+
+</div><!-- /page -->
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── Power Automate endpoint — paste your Flow URL here once created. Leave as-is until then. */
+  var FLOW_URL = 'PASTE_YOUR_FLOW_URL_HERE';
+
+  /* ── Utilities ──────────────────────────────────────── */
+  function pad(n) { return n < 10 ? '0' + n : String(n); }
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  /* Normalise the text from a contenteditable element.
+     Collapses all whitespace variants (including non-breaking
+     spaces and narrow no-break spaces added by the HTML) to
+     a single ASCII space, then trims.  The data-original
+     attributes are already written with the same normalisation
+     so an untouched element always compares equal. */
+  function clean(el) {
+    return el.textContent
+      .replace(/[   ’‘]/g, function (c) {
+        /* curly quotes and special spaces → ASCII equivalents */
+        if (c === '’' || c === '‘') return "'";
+        return ' ';
+      })
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /* ── Word-level LCS diff ────────────────────────────── */
+  function tokenise(s) { return s.match(/\S+|\s+/g) || []; }
+
+  function buildDiff(oldS, newS) {
+    var a = tokenise(oldS), b = tokenise(newS);
+    var m = a.length, n = b.length;
+    /* build DP table */
+    var dp = new Array(m + 1);
+    var i, j;
+    for (i = 0; i <= m; i++) {
+      dp[i] = new Array(n + 1).fill(0);
+    }
+    for (i = 1; i <= m; i++) {
+      for (j = 1; j <= n; j++) {
+        dp[i][j] = (a[i-1] === b[j-1])
+          ? dp[i-1][j-1] + 1
+          : Math.max(dp[i-1][j], dp[i][j-1]);
+      }
+    }
+    /* backtrack */
+    var ops = [];
+    i = m; j = n;
+    while (i > 0 || j > 0) {
+      if (i > 0 && j > 0 && a[i-1] === b[j-1]) {
+        ops.unshift({ t: 'eq',  v: a[i-1] }); i--; j--;
+      } else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) {
+        ops.unshift({ t: 'ins', v: b[j-1] }); j--;
+      } else {
+        ops.unshift({ t: 'del', v: a[i-1] }); i--;
+      }
+    }
+    return ops;
+  }
+
+  function renderOps(ops) {
+    return ops.map(function (op) {
+      var e = esc(op.v);
+      if (op.t === 'eq')  return e;
+      if (op.t === 'del') return '<del>' + e + '</del>';
+      return '<ins>' + e + '</ins>';
+    }).join('');
+  }
+
+  /* ── Timer ──────────────────────────────────────────── */
+  var secsLeft  = 30 * 60;
+  var timerEl   = document.getElementById('timer');
+  var submitted = false;
+
+  var ticker = setInterval(function () {
+    if (submitted) return;
+    secsLeft--;
+    var m = Math.floor(secsLeft / 60), s = secsLeft % 60;
+    timerEl.textContent = pad(m) + ':' + pad(s);
+    if (secsLeft <= 300) timerEl.classList.add('urgent');
+    if (secsLeft <= 0)   { timerEl.textContent = '00:00'; doSubmit(); }
+  }, 1000);
+
+  /* ── Live amendment counter ─────────────────────────── */
+  function updateCounter() {
+    var n = 0;
+    document.querySelectorAll('[data-original]').forEach(function (el) {
+      if (clean(el) !== el.dataset.original) n++;
+    });
+    var badge = document.getElementById('change-count');
+    badge.textContent = n > 0
+      ? n + ' amendment' + (n > 1 ? 's' : '') + ' recorded'
+      : 'No amendments yet';
+  }
+
+  /* ── Keyboard and paste guards ───────────────────────── *
+   * Prevent Enter creating new block elements inside the
+   * single-block editable sections.  Strip HTML from pasted
+   * content so only plain text is inserted.
+   * ──────────────────────────────────────────────────────── */
+  document.querySelectorAll('[contenteditable="true"]').forEach(function (el) {
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') e.preventDefault();
+    });
+    el.addEventListener('paste', function (e) {
+      e.preventDefault();
+    });
+    el.addEventListener('input', updateCounter);
+  });
+
+  /* ── Collect all sections in DOM order ───────────────── */
+  function collectSections() {
+    var out = [];
+    document.querySelectorAll('[data-original]').forEach(function (el) {
+      var orig = el.dataset.original;
+      var curr = clean(el);
+      var changed = curr !== orig;
+      out.push({
+        id:      el.id,
+        tag:     el.tagName.toLowerCase(),
+        part:    el.dataset.part  || '',
+        label:   el.dataset.label || 'Section',
+        orig:    orig,
+        curr:    curr,
+        changed: changed,
+        ops:     changed ? buildDiff(orig, curr) : null
+      });
+    });
+    return out;
+  }
+
+  /* ── Render a single section for the review view ──────── */
+  function sectionHtml(s) {
+    var cls  = s.changed ? ' class="was-changed"' : '';
+    var body = s.changed ? renderOps(s.ops) : esc(s.orig);
+    var tag  = s.tag;
+    if (tag === 'h2') return '<h2' + cls + '>' + body + '</h2>';
+    if (tag === 'h3') return '<h3' + cls + '>' + body + '</h3>';
+    if (tag === 'li') return '<li' + cls + '>' + body + '</li>';
+    /* span → paragraph */
+    return '<p class="para' + (s.changed ? ' was-changed' : '') + '">' + body + '</p>';
+  }
+
+  /* Reconstruct the article HTML, wrapping consecutive li
+     sections inside a <ul class="blist"> automatically. */
+  function articleHtml(sections) {
+    var html = '', inList = false;
+    sections.forEach(function (s) {
+      if (s.tag === 'li') {
+        if (!inList) { html += '<ul class="blist">'; inList = true; }
+        html += sectionHtml(s);
+      } else {
+        if (inList) { html += '</ul>'; inList = false; }
+        html += sectionHtml(s);
+      }
+    });
+    if (inList) html += '</ul>';
+    return html;
+  }
+
+  /* ── Submit handler ─────────────────────────────────── */
+  function doSubmit() {
+    if (submitted) return;
+    submitted = true;
+    clearInterval(ticker);
+
+    /* freeze editing */
+    document.querySelectorAll('[contenteditable="true"]').forEach(function (el) {
+      el.contentEditable = 'false';
+    });
+    document.getElementById('submit-top').disabled    = true;
+    document.getElementById('submit-bottom').disabled = true;
+
+    /* candidate info */
+    var nameInput  = document.getElementById('candidate-name');
+    var name       = nameInput.value.trim() || '[Name not provided]';
+    var submitTime = new Date().toLocaleString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+
+    /* collect changes */
+    var sections = collectSections();
+    var changed  = sections.filter(function (s) { return s.changed; });
+    var total    = changed.length;
+
+    /* review header */
+    document.getElementById('rv-name').textContent  = name;
+    document.getElementById('rv-time').textContent  = submitTime;
+    document.getElementById('rv-total').textContent = total + ' of ' + sections.length + ' section' + (sections.length > 1 ? 's' : '');
+
+    /* amendment summary table (changed sections only) */
+    var tbody = document.getElementById('summary-tbody');
+    if (changed.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="no-amend">No amendments were recorded.</td></tr>';
+    } else {
+      tbody.innerHTML = changed.map(function (s) {
+        return '<tr>' +
+          '<td class="col-part">'  + esc(s.part)  + '</td>' +
+          '<td class="col-sect">'  + esc(s.label) + '</td>' +
+          '<td class="col-diff">'  + renderOps(s.ops) + '</td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    /* full document view */
+    var p1 = sections.filter(function (s) { return s.part === 'Part 1'; });
+    var p2 = sections.filter(function (s) { return s.part === 'Part 2'; });
+
+    document.getElementById('review-content').innerHTML =
+      '<article>' +
+        '<div class="part-label">Part One of Two</div>' +
+        articleHtml(p1) +
+      '</article>' +
+      '<article>' +
+        '<div class="part-label">Part Two of Two</div>' +
+        articleHtml(p2) +
+      '</article>';
+
+    /* ── Build mailto URL ──────────────────────────────── *
+     * Generates a plain-text amendment record and pre-fills
+     * a mailto: link so the candidate can send it to the
+     * assessor in one click.
+     * ──────────────────────────────────────────────────── */
+    var textLines = [
+      'FROMCOUNSEL EDT — AMENDMENT RECORD',
+      '=====================================',
+      '',
+      'Candidate : ' + name,
+      'Submitted : ' + submitTime,
+      'Amended   : ' + total + ' of ' + sections.length + ' section' + (sections.length > 1 ? 's' : ''),
+      '',
+      String(Array(46).join('-')),
+      ''
+    ];
+
+    if (changed.length === 0) {
+      textLines.push('No amendments were recorded.');
+    } else {
+      changed.forEach(function (s) {
+        textLines.push(s.part + ' — ' + s.label);
+        textLines.push('Original : ' + s.orig);
+        textLines.push('Amended  : ' + s.curr);
+        textLines.push('');
+      });
+    }
+
+    var bodyText   = textLines.join('\n');
+    if (FLOW_URL !== 'PASTE_YOUR_FLOW_URL_HERE') {
+      /* Build a self-contained HTML file string for SharePoint */
+      var htmlRows = changed.map(function (s) {
+        return '<tr><td style="padding:6px 10px;border-bottom:1px solid #e0e0e0;white-space:nowrap;color:#555;font-size:12px">' + s.part + '</td>' +
+               '<td style="padding:6px 10px;border-bottom:1px solid #e0e0e0;white-space:nowrap;color:#555;font-size:12px">' + s.label + '</td>' +
+               '<td style="padding:6px 10px;border-bottom:1px solid #e0e0e0;font-size:13px">' + renderOps(s.ops) + '</td></tr>';
+      }).join('');
+      var htmlRecord =
+        '<!DOCTYPE html><html lang="en-GB"><head><meta charset="UTF-8">' +
+        '<title>EDT - ' + esc(name) + '</title>' +
+        '<style>body{font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#1a1a1a;padding:32px 40px;max-width:920px;margin:0 auto}' +
+        'h1{font-size:18px;border-bottom:2px solid #0F4C81;padding-bottom:8px;color:#0F4C81}' +
+        '.meta{font-size:13px;color:#555;margin-bottom:24px}' +
+        'table{width:100%;border-collapse:collapse;margin-top:16px}' +
+        'th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#888;border-bottom:2px solid #ccc;padding:6px 10px}' +
+        'del{color:#c62828;background:rgba(198,40,40,.1);text-decoration:line-through;border-radius:2px;padding:0 2px}' +
+        'ins{color:#2e7d32;background:rgba(46,125,50,.1);text-decoration:underline;border-radius:2px;padding:0 2px}' +
+        '</style></head><body>' +
+        '<h1>EDT Amendment Record</h1>' +
+        '<div class="meta"><strong>Candidate:</strong> ' + esc(name) +
+        ' &nbsp;&nbsp; <strong>Submitted:</strong> ' + esc(submitTime) +
+        ' &nbsp;&nbsp; <strong>Sections amended:</strong> ' + total + ' of ' + sections.length + '</div>' +
+        (htmlRows
+          ? '<table><thead><tr><th>Part</th><th>Section</th><th>Amendment (red=deleted &nbsp; green=inserted)</th></tr></thead><tbody>' + htmlRows + '</tbody></table>'
+          : '<p>No amendments recorded.</p>') +
+        '</body></html>';
+
+      var safeFileName = name.replace(/[^a-zA-Z0-9 _-]/g, '').replace(/\s+/g, '-') +
+                         '-EDT-' + new Date().toISOString().slice(0,10) + '.html';
+
+      fetch(FLOW_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          candidateName: name,
+          submittedAt:   submitTime,
+          totalAmended:  total,
+          totalSections: sections.length,
+          amendments:    changed.map(function (s) {
+            return { part: s.part, label: s.label, original: s.orig, amended: s.curr };
+          }),
+          fullRecord:    bodyText,
+          htmlRecord:    htmlRecord,
+          fileName:      safeFileName
+        })
+      }).catch(function (e) { console.warn('Submission log failed', e); });
+    }
+
+    var mailSubj   = encodeURIComponent('EDT Amendment Record - ' + name);
+    var mailBody   = encodeURIComponent(bodyText);
+    var mailtoHref = 'mailto:lucy.squires@fromcounsel.com?subject=' + mailSubj + '&body=' + mailBody;
+
+    /* Auto-open the email client as soon as the view switches.
+       A hidden <a> click is more reliable than window.location.href
+       for mailto: on all browsers.  The visible button acts as a
+       fallback in case the browser suppresses the auto-open. */
+    var mailLink  = document.createElement('a');
+    mailLink.href = mailtoHref;
+    mailLink.style.display = 'none';
+    document.body.appendChild(mailLink);
+
+    document.getElementById('email-btn').addEventListener('click', function () {
+      mailLink.click();
+    });
+    document.getElementById('email-btn').textContent = 'Resend email to assessor';
+
+    /* switch views */
+    document.getElementById('edit-phase').hidden   = true;
+    document.getElementById('review-phase').hidden = false;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    /* Trigger after a short delay so the page transition completes first */
+    setTimeout(function () { mailLink.click(); }, 600);
+  }
+
+  /* ── Button wiring ──────────────────────────────────── */
+  document.getElementById('submit-top').addEventListener('click', function () {
+    var n = document.getElementById('candidate-name');
+    if (!n.value.trim()) {
+      n.classList.add('err');
+      n.focus();
+      return;
+    }
+    doSubmit();
+  });
+
+  document.getElementById('submit-bottom').addEventListener('click', function () {
+    document.getElementById('submit-top').click();
+  });
+
+  document.getElementById('candidate-name').addEventListener('input', function () {
+    this.classList.remove('err');
+  });
+
+
+}());
+</script>
+</body>
+</html>
